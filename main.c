@@ -1,70 +1,46 @@
-/*******************************************************************************
-* main.c
-* 3/7/2017
-* Donald MacIntyre - djm4912
-*
-* Description:
-*******************************************************************************/
-
-/* Hello World program */
-
-#include<stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
-#include <semaphore.h>
+#include <stdio.h>
+#include <signal.h>
+#include <time.h>
 
-sem_t semaphore;
-pthread_t my_thread1;
-pthread_t my_thread2;
-pthread_t my_thread3;
+#include "customer.h"
+#include "queue.h"
 
-
-void handleOne() {
-    while (1) {
-        sem_wait(&semaphore);
-        printf("Executing handleOne()\n");
-        sleep(3);
-        printf("Done processing 1\n");
-    }
-}
-
-void handleTwo() {
-    while (1) {
-        sem_wait(&semaphore);
-        printf("Executing handleTwo()\n");
-        sleep(2);
-        printf("Done processing 2\n");
-    }
-}
-
-void handleThree() {
-    while (1) {
-        sem_wait(&semaphore);
-        printf("Executing handleThree()\n");
-        sleep(1);
-        printf("Done processing 3\n");
-    }
-}
-
-void main()
-{    
-
-    int num;
+int main(int argc, char *argv[]) {
     
-    srand(time(NULL));
-
-    // Initalize semaphore to -1 (so all threads will block by default)
-    // 0 - don't share semaphore with forked processes????
-    sem_init(&semaphore, 0, 0);
+    struct queue fifo;
     
-    pthread_create(&my_thread1, NULL, handleOne); 
-    pthread_create(&my_thread2, NULL, handleTwo); 
-    pthread_create(&my_thread3, NULL, handleThree); 
+    struct customer c1;
+    struct customer c2;
     
-    while(1) {
-        sem_getvalue(&semaphore, &num);
-        printf("Currently waiting: %d \n", num);
-        sleep(2);
-        sem_post(&semaphore);
-    }
+    struct customer t1;
+    struct customer t2;
     
+    init_queue(&fifo);
+    printf("Is the FIFO empty? %d\n", isEmpty(&fifo));
+    c1.bankEntryTime = 5;
+    c1.transactionStartTime=7123;
+    c1.transactionEndTime=99;
+    
+    c2.bankEntryTime = 1;
+    c2.transactionStartTime=2;
+    c2.transactionEndTime=3;
+    
+    push(&fifo,c1);
+    push(&fifo,c2);
+    
+    t1 = pop(&fifo);
+    t2 = pop(&fifo);
+    
+    
+	printf("Bank entry time is %d\n", t1.bankEntryTime);
+    printf("Start time is %d\n", t1.transactionStartTime);
+    printf("End time is %d\n", t1.transactionEndTime);
+    
+    printf("Bank entry time is %d\n", t2.bankEntryTime);
+    printf("Start time is %d\n", t2.transactionStartTime);
+    printf("End time is %d\n", t2.transactionEndTime);
+    
+	return EXIT_SUCCESS;
 }
