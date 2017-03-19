@@ -4,10 +4,10 @@ OBJECTS = main.o queue.o
 default: main
 
 %.o: %.c $(HEADERS)
-	gcc -c $< -o $@
+	gcc -c $< -pthread -lrt -o $@
 
 main: $(OBJECTS)
-	gcc $(OBJECTS) -o $@
+	gcc $(OBJECTS) -pthread -lrt -o $@
 
 clean:
 	rm -f $(OBJECTS) main

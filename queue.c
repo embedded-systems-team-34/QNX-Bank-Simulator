@@ -35,6 +35,7 @@ unsigned int push(struct queue* q, struct customer c) {
     // Queue is not full so add the customer
     q->customer_arr[q->in_ptr] = c;
     q->in_ptr = (q->in_ptr + 1) % MAX_QUEUE_SIZE; 
+    q->length += 1;
     return TRUE;
 }
 
