@@ -16,6 +16,7 @@
 
 #define TRUE (1)
 #define FALSE (0)
+#define BOOL unsigned int
 
 #define MAX_QUEUE_SIZE (200)
 

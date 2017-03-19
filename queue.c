@@ -18,7 +18,7 @@ void init_queue(struct queue* q) {
 	q->length = 0;
 }
 
-unsigned int isEmpty(struct queue* q) {
+BOOL isEmpty(struct queue* q) {
     if (q->length == 0) {
         return TRUE;
     } else {
@@ -27,7 +27,7 @@ unsigned int isEmpty(struct queue* q) {
 }
 
 // Push an element onto the queue and return TRUE iff the push is successful
-unsigned int push(struct queue* q, struct customer c) {
+BOOL push(struct queue* q, struct customer c) {
     // First check that Queue is not full 
     if (q->length == MAX_QUEUE_SIZE) {
         return FALSE;
@@ -43,6 +43,7 @@ struct customer pop(struct queue* q) {
     struct customer c;
     c = q->customer_arr[q->out_ptr];
     q->out_ptr = (q->out_ptr + 1) % MAX_QUEUE_SIZE; 
+    q->length -= 1;
     return c;
     
 }

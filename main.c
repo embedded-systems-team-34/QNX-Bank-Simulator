@@ -28,16 +28,39 @@ unsigned int randomNum(unsigned int min, unsigned int max) {
     return rand() % (max + 1 - min) + min;
 }
 
-void myThread(void) {
+void *teller() {
     
-    unsigned int last_processed_cnt = 1;
+    unsigned int fifo_empty;
+    unsigned int transactionTime = 0;
     
     while(TRUE) {
+        pthread_mutex_lock(&lock);
+        // wait on count to update
+        pthread_cond_wait(&cv, &lock);
+        fifo_empty = isEmpty(&q); 
+        // The queue is not empty and the current teller is free
+        if ((fifo_empty == FALSE) && (transactionTime == 0)) {
+            // Pop from the queue
+            struct customer c;
+            c = pop(&q);
+            // Determine the length of the transactionStartTime
+            transactionTime = randomNum(30,480);
+            c.transactionEndTime = transactionTime;
+        }
+        // Do not want to subtract one if a teller is not busy will underflow
+        if (transactionTime > 0) {
+            transactionTime -= 1;
+        }
+        // If end of day and the queue is empty
+        if ((count > END_OF_DAY) && (fifo_empty == TRUE)) {
+            pthread_exit(NULL);
+        }
+        pthread_mutex_unlock(&lock);
         
     }
 }
 
-void bankDoor(void) {
+void *bankDoor() {
     
     unsigned int random_next_arrival = 0;
     unsigned int last_processed_cnt = 1;
@@ -46,6 +69,7 @@ void bankDoor(void) {
     
     while( count < END_OF_DAY) {
         pthread_mutex_lock(&lock);
+        // Wait on count to update
         pthread_cond_wait(&cv, &lock);
         // If next customer is arriving
         if (random_next_arrival == 0) {      
@@ -65,7 +89,11 @@ void bankDoor(void) {
     printf("Bank had: %u\n", customer_cnt);
 }
 
-void timer(void) {
+void *timer() {
+    
+    BOOL isempty;
+    unsigned int num_in_line = 0;
+    
     while(TRUE) {
         // Simulate timer which will fire every 1.666 using
         // 1.666 us represents 1 second of reallife time
@@ -75,7 +103,17 @@ void timer(void) {
         pthread_mutex_lock(&lock);
         count += 1;
         pthread_cond_broadcast(&cv);
+        isempty = isEmpty(&q); 
         pthread_mutex_unlock(&lock);
+        if (q.length > num_in_line) {
+            num_in_line = q.length;
+        }
+        
+        // If current time of day is past closing time and queue is empty
+        if ((count > END_OF_DAY) && (isempty == TRUE)) {
+            printf("Maximum number in line: %u\n", num_in_line);
+            break;
+        }
         
     }   
 } 
@@ -95,9 +133,9 @@ int main(int argc, char *argv[]) {
     pthread_cond_init (&cv, NULL);
     
     
-    pthread_create(&teller1, NULL, myThread, NULL);
-    pthread_create(&teller2, NULL, myThread, NULL);
-    pthread_create(&teller3, NULL, myThread, NULL);
+    pthread_create(&teller1, NULL, teller, NULL);
+    pthread_create(&teller2, NULL, teller, NULL);
+    pthread_create(&teller3, NULL, teller, NULL);
     
     pthread_create(&bankdoor_th, NULL, bankDoor, NULL);
     pthread_create(&timer_th, NULL, timer, NULL);
