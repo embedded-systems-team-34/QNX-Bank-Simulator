@@ -28,8 +28,8 @@ struct queue {
 };
 
 void init_queue(struct queue * q);
-unsigned int isEmpty(struct queue* q);
-unsigned int push(struct queue* q, struct customer c);
+BOOL isEmpty(struct queue* q);
+BOOL push(struct queue* q, struct customer c);
 struct customer pop(struct queue* q) ;
 
 

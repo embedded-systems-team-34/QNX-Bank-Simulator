@@ -28,7 +28,7 @@ unsigned int randomNum(unsigned int min, unsigned int max) {
     return rand() % (max + 1 - min) + min;
 }
 
-void *teller() {
+void *teller_thread() {
     
     unsigned int fifo_empty;
     unsigned int transactionTime = 0;
@@ -133,9 +133,9 @@ int main(int argc, char *argv[]) {
     pthread_cond_init (&cv, NULL);
     
     
-    pthread_create(&teller1, NULL, teller, NULL);
-    pthread_create(&teller2, NULL, teller, NULL);
-    pthread_create(&teller3, NULL, teller, NULL);
+    pthread_create(&teller1, NULL, teller_thread, NULL);
+    pthread_create(&teller2, NULL, teller_thread, NULL);
+    pthread_create(&teller3, NULL, teller_thread, NULL);
     
     pthread_create(&bankdoor_th, NULL, bankDoor, NULL);
     pthread_create(&timer_th, NULL, timer, NULL);
