@@ -1,8 +1,8 @@
 /******************************************************************************
-* FILENAME : queue.h          
+* FILENAME : queue.c      
 *
 * DESCRIPTION : 
-*     Queue function prototypes
+*     Queue implementation
 *
 * AUTHOR: 
 *     Donald MacIntyre - djm4912@rit.edu

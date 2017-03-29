@@ -13,14 +13,27 @@
 #ifndef TELLER_H
 #define TELLER_H
 
+#include "queue.h"
+
 struct teller {
 	unsigned int tellerId;
     unsigned int customersProcessed;
+    unsigned int numBreaks;
     unsigned int available_times[MAX_QUEUE_SIZE];
     unsigned int start_transaction_times[MAX_QUEUE_SIZE];
     unsigned int end_transaction_times[MAX_QUEUE_SIZE];
     unsigned int break_start_time[MAX_QUEUE_SIZE];
     unsigned int break_end_time[MAX_QUEUE_SIZE];
-    };
+};
 
+void initTeller(struct teller* t, unsigned int tellerId);    
+void logTellerAvailable(struct teller* t, unsigned int timestamp);
+void logStartTransaction(struct teller* t, unsigned int timestamp);
+void logEndTransaction(struct teller* t, unsigned int timestamp);
+void logBreakStart(struct teller* t, unsigned int timestamp);
+void logBreakEnd(struct teller* t, unsigned int timestamp);
+unsigned int getLongestBreak(struct teller * t);
+unsigned int getShortestBreak(struct teller * t);
+unsigned int getAverageBreak(struct teller *t);
+    
 #endif
