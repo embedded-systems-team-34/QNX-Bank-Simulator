@@ -54,9 +54,19 @@ void outputStats(struct stats *s) {
     printf("* Total numbers of customers serviced during: %u\n", num_customers);
     printf("* Average time customers spent waiting in the queue: %u\n", total_customer_wait_time_in_seconds/num_customers);
     printf("* Average time customers spent with tellers: %u\n", total_time_spent_with_tellers_seconds/num_customers);
-    printf("* TODO Average time tellers spent waiting for customers: %u\n", 0);
+    
+    unsigned int teller_total_wait_time = getTotalWaitTime(&s->tellers[0]) + 
+                                          getTotalWaitTime(&s->tellers[1]) + 
+                                          getTotalWaitTime(&s->tellers[2]);
+    
+    printf("* Average time tellers spent waiting for customers: %u\n", teller_total_wait_time / num_customers);
     printf("* Maximum customer wait time : %u\n", max_customer_wait_time_seconds);
-    printf("* TODO Maximum wait time for tellers waiting for customers: %u\n", 0);
+    
+    unsigned int teller1_max_time = getMaximumWaitTime(&s->tellers[0]);
+    unsigned int teller2_max_time = getMaximumWaitTime(&s->tellers[0]);
+    unsigned int teller3_max_time = getMaximumWaitTime(&s->tellers[0]);
+    
+    printf("* Maximum wait time for tellers waiting for customers: %u\n", getMax3(teller1_max_time,teller2_max_time,teller3_max_time));
     printf("* Maximum transaction time for the tellers: %u\n", max_transaction_time_seconds);
     printf("* Maximum depth of the queue: %u\n", s->max_num_in_line);
     printf("*****************************************************************\n");
@@ -69,4 +79,21 @@ void outputStats(struct stats *s) {
         printf("* Teller %u longest break was: %u\n", s->tellers[i].tellerId,getLongestBreak(&s->tellers[i]));
         printf("*****************************************************************\n");
     }
+}
+
+unsigned int getMax3(unsigned int num1, unsigned int num2, unsigned int num3) {
+    unsigned int max_num1_2;
+    
+    if (num1 > num2) {
+        max_num1_2 = num1;
+    } else {
+        max_num1_2 = num2;
+    }
+    
+    if (max_num1_2 > num3) {
+        return max_num1_2;
+    } else {
+        return num3;
+    }
+    
 }

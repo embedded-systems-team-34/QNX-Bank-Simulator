@@ -73,3 +73,53 @@ unsigned int getAverageBreak(struct teller *t) {
     }
     return totalBreakTimeInSeconds / t->numBreaks;
 }
+
+unsigned int getTotalWaitTime(struct teller *t) {
+    unsigned int i = 0;
+    unsigned int j = 0;
+    unsigned int transaction_wait_time = 0;
+    unsigned int totalWaitTime = 0;
+    
+    // Loop over all transactions and determine how longer teller was waiting before each one started
+    for (i = 0; i < t->customersProcessed; i++) {
+        // Calculate the time between starting a transaction and becoming avaliable 
+        transaction_wait_time = t->start_transaction_times[i] - t->available_times[i];
+        // Teller may have gone on break between these two times, need to account for this as a teller is not waiting while on break
+        // loop over all breaks to determine if any intersect with current transaction wait time 
+        for (j = 0; j < t->numBreaks; j++) {
+            // Teller went on break during this wait period so dont count this time as teller waiting
+            if ((t->break_start_time[j] >= t->available_times[i]) && (t->break_end_time[j] <= t->start_transaction_times[i])) {
+                transaction_wait_time -= (t->break_end_time[j] - t->break_start_time[j]);
+            }
+        }
+        totalWaitTime += transaction_wait_time;
+        
+    }
+    return totalWaitTime;
+}
+
+unsigned int getMaximumWaitTime(struct teller *t) {
+    unsigned int i = 0;
+    unsigned int j = 0;
+    unsigned int transaction_wait_time = 0;
+    unsigned int maxWaitTime = 0;
+    
+    // Loop over all transactions and determine how longer teller was waiting before each one started
+    for (i = 0; i < t->customersProcessed; i++) {
+        // Calculate the time between starting a transaction and becoming avaliable 
+        transaction_wait_time = t->start_transaction_times[i] - t->available_times[i];
+        // Teller may have gone on break between these two times, need to account for this as a teller is not waiting while on break
+        // loop over all breaks to determine if any intersect with current transaction wait time 
+        for (j = 0; j < t->numBreaks; j++) {
+            // Teller went on break during this wait period so dont count this time as teller waiting
+            if ((t->break_start_time[j] >= t->available_times[i]) && (t->break_end_time[j] <= t->start_transaction_times[i])) {
+                transaction_wait_time -= (t->break_end_time[j] - t->break_start_time[j]);
+            }
+        }
+        if (transaction_wait_time > maxWaitTime) {
+            maxWaitTime = transaction_wait_time;
+        }
+        
+    }
+    return maxWaitTime;
+}

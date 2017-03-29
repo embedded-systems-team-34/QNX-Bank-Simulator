@@ -35,5 +35,7 @@ void logBreakEnd(struct teller* t, unsigned int timestamp);
 unsigned int getLongestBreak(struct teller * t);
 unsigned int getShortestBreak(struct teller * t);
 unsigned int getAverageBreak(struct teller *t);
+unsigned int getTotalWaitTime(struct teller *t);
+unsigned int getMaximumWaitTime(struct teller *t);
     
 #endif

@@ -23,10 +23,11 @@ pthread_mutex_t lock;
 pthread_cond_t cv;
 struct queue inqueue;
 struct queue outqueue;
+unsigned int customersInBank = 0;
 
 // Represents seconds 
 unsigned int count = 0;
-// Number of 
+// Number of customers in line
 unsigned int max_num_in_line = 0;
 
 unsigned int randomNum(unsigned int min, unsigned int max) {
@@ -75,6 +76,7 @@ void *teller_thread(void *args) {
                 logStartTransaction(t, count);
                 struct customer c;
                 c = pop(&inqueue);
+                customersInBank += 1;
                 // Determine the length of the transactionStartTime
                 transactionTime = randomNum(30,8*SECONDS_PER_MINUTE);
                 c.transactionStartTime = count;
@@ -91,6 +93,7 @@ void *teller_thread(void *args) {
             if (transactionTime == 1) {
                 logEndTransaction(t, count + 1);
                 logTellerAvailable(t, count + 1);
+                customersInBank -= 1;
             }
             
             if (timeUntilBreak > 0 ) {
@@ -98,13 +101,11 @@ void *teller_thread(void *args) {
             }
             
             // If end of day and the queue is empty
-            if ((count > END_OF_DAY) && (fifo_empty == TRUE)) {
-                pthread_exit(NULL);
+            if ((count > END_OF_DAY) && (fifo_empty == TRUE) && customersInBank == 0) {
+                break;
             }
         }
-
         pthread_mutex_unlock(&lock);
-        
     }
 }
 
@@ -115,23 +116,28 @@ void *bankDoor() {
     unsigned int customer_cnt = 0;
     unsigned int i = 0;
     
-    while( count < END_OF_DAY) {
-        pthread_mutex_lock(&lock);
-        // Wait on count to update
-        pthread_cond_wait(&cv, &lock);
-        // If next customer is arriving
-        if (random_next_arrival == 0) {      
-            customer_cnt += 1;
-            // Push current customer into the FIFO
-            struct customer c;
-            c.bankEntryTime = count;
-            push(&inqueue,c);
-            // Pick time until next customer arrives
-            random_next_arrival = randomNum(SECONDS_PER_MINUTE,4*SECONDS_PER_MINUTE);
-        } 
-        last_processed_cnt = count;
-        random_next_arrival -= 1;
-        pthread_mutex_unlock(&lock);
+    while (TRUE) {
+        while( count < END_OF_DAY) {
+            pthread_mutex_lock(&lock);
+            // Wait on count to update
+            pthread_cond_wait(&cv, &lock);
+            // If next customer is arriving
+            if (random_next_arrival == 0) {      
+                customer_cnt += 1;
+                // Push current customer into the FIFO
+                struct customer c;
+                c.bankEntryTime = count;
+                push(&inqueue,c);
+                // Pick time until next customer arrives
+                random_next_arrival = randomNum(SECONDS_PER_MINUTE,4*SECONDS_PER_MINUTE);
+            } 
+            last_processed_cnt = count;
+            random_next_arrival -= 1;
+            pthread_mutex_unlock(&lock);
+        }
+        if ((count > END_OF_DAY) && (customersInBank == 0)) {
+            break;
+        }
     }
     //printf("The bank is closed!!\n");
     //printf("Bank had: %u\n", customer_cnt);
@@ -157,9 +163,9 @@ void *timer() {
         }
         
         // If current time of day is past closing time and queue is empty
-        if ((count > END_OF_DAY) && (isempty == TRUE)) {
-            break;
-        }
+        //if ((count > END_OF_DAY) && (isempty == TRUE) && (customersInBank == 0)) {
+        //    break;
+        //}
         
     }   
 } 
@@ -194,7 +200,8 @@ int main(int argc, char *argv[]) {
     pthread_create(&bankdoor_th, NULL, bankDoor, NULL);
     pthread_create(&timer_th, NULL, timer, NULL);
     
-    pthread_join(timer_th, NULL);
+    pthread_join(bankdoor_th, NULL);
+    
     
     struct stats s;
     initStats(&s, &tell1, &tell2, &tell3, &outqueue, max_num_in_line);

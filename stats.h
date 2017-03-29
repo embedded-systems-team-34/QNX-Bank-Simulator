@@ -27,5 +27,6 @@ struct stats {
 
 void initStats(struct stats *s, struct teller *t1, struct teller *t2, struct teller *t3, struct queue *q, unsigned int max_num_in_line);
 void printStats(struct stats *s);
+unsigned int getMax3(unsigned int num1, unsigned int num2, unsigned int num3);
     
 #endif
