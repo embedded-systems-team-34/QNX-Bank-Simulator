@@ -12,10 +12,12 @@
 
 #include "stats.h"
 
-void initStats(struct stats *s, struct teller *t1, struct teller *t2, struct teller *t3) {
+void initStats(struct stats *s, struct teller *t1, struct teller *t2, struct teller *t3, struct queue *q, unsigned int max_num_in_line) {
     s->tellers[0] = *t1;
     s->tellers[1] = *t2;
     s->tellers[2] = *t3;
+    s->q = *q;
+    s->max_num_in_line = max_num_in_line;
 }
 
 void outputStats(struct stats *s) {
@@ -28,14 +30,35 @@ void outputStats(struct stats *s) {
     
     // Required metrics
     
-    printf("* Total numbers of customers serviced during: %u\n", 0);
-    printf("* Average time customers spent waiting in the queue: %u\n", 0);
-    printf("* Average time customers spent with tellers: %u\n", 0);
-    printf("* Average time tellers spent waiting for customers: %u\n", 0);
-    printf("* Maximum customer wait time : %u\n", 0);
-    printf("* Maximum wait time for tellers waiting for customers: %u\n", 0);
-    printf("* Maximum transaction time for the tellers: %u\n", 0);
-    printf("* Maximum depth of the queue: %u\n", 0);
+    unsigned int num_customers = s->q.length;
+    unsigned int total_customer_wait_time_in_seconds = 0;
+    unsigned int total_time_spent_with_tellers_seconds = 0;
+    unsigned int max_customer_wait_time_seconds = 0;
+    unsigned int max_transaction_time_seconds = 0;
+    
+    
+    // Loop over all customers that visited the bank today
+    for (i = 0; i < num_customers; i++) {
+        struct customer c;
+        c = pop(&s->q); 
+        total_customer_wait_time_in_seconds += c.transactionStartTime - c.bankEntryTime;
+        total_time_spent_with_tellers_seconds += c.transactionEndTime - c.transactionStartTime;
+        if (max_customer_wait_time_seconds < (c.transactionStartTime - c.bankEntryTime)) {
+            max_customer_wait_time_seconds = c.transactionStartTime - c.bankEntryTime;
+        }
+        if (max_transaction_time_seconds < (c.transactionEndTime - c.transactionStartTime)) {
+            max_transaction_time_seconds = c.transactionEndTime - c.transactionStartTime;
+        }
+    }
+    
+    printf("* Total numbers of customers serviced during: %u\n", num_customers);
+    printf("* Average time customers spent waiting in the queue: %u\n", total_customer_wait_time_in_seconds/num_customers);
+    printf("* Average time customers spent with tellers: %u\n", total_time_spent_with_tellers_seconds/num_customers);
+    printf("* TODO Average time tellers spent waiting for customers: %u\n", 0);
+    printf("* Maximum customer wait time : %u\n", max_customer_wait_time_seconds);
+    printf("* TODO Maximum wait time for tellers waiting for customers: %u\n", 0);
+    printf("* Maximum transaction time for the tellers: %u\n", max_transaction_time_seconds);
+    printf("* Maximum depth of the queue: %u\n", s->max_num_in_line);
     printf("*****************************************************************\n");
     
     // Grad additional metrics (breaks)

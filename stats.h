@@ -13,15 +13,19 @@
 #include <stdio.h>
 
 #include "teller.h" 
+#include "queue.h"
+#include "customer.h"
 
 #ifndef STATS_H
 #define STATS_H
 
 struct stats {
 	struct teller tellers[3];
+    struct queue q;
+    unsigned int max_num_in_line;
 };
 
-void initStats(struct stats *s, struct teller *t1, struct teller *t2, struct teller *t3);
+void initStats(struct stats *s, struct teller *t1, struct teller *t2, struct teller *t3, struct queue *q, unsigned int max_num_in_line);
 void printStats(struct stats *s);
     
 #endif

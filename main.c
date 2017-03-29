@@ -21,10 +21,13 @@
 
 pthread_mutex_t lock;
 pthread_cond_t cv;
-struct queue q;
+struct queue inqueue;
+struct queue outqueue;
 
 // Represents seconds 
 unsigned int count = 0;
+// Number of 
+unsigned int max_num_in_line = 0;
 
 unsigned int randomNum(unsigned int min, unsigned int max) {
     return rand() % (max + 1 - min) + min;
@@ -44,7 +47,7 @@ void *teller_thread(void *args) {
         pthread_mutex_lock(&lock);
         // wait on count to update
         pthread_cond_wait(&cv, &lock);
-        fifo_empty = isEmpty(&q); 
+        fifo_empty = isEmpty(&inqueue); 
         
         // If time for the teller to go on break and teller not busy and teller not currently on break and not the end of day
         // Once the day is over tellers will no longer take breaks as they know as soon as they finish the queue they can go home
@@ -71,15 +74,18 @@ void *teller_thread(void *args) {
                 // Pop from the queue
                 logStartTransaction(t, count);
                 struct customer c;
-                c = pop(&q);
+                c = pop(&inqueue);
                 // Determine the length of the transactionStartTime
                 transactionTime = randomNum(30,8*SECONDS_PER_MINUTE);
-                c.transactionEndTime = transactionTime;
+                c.transactionStartTime = count;
+                c.transactionEndTime = count + transactionTime;
+                // Push customers that have been fully processed into the queue for stats processing
+                push(&outqueue, c);
             }
             // Do not want to subtract one if a teller is not busy will underflow
             if (transactionTime > 0) {
                 transactionTime -= 1;
-            }
+            } 
             
             // Log the end of a customer transaction
             if (transactionTime == 1) {
@@ -118,8 +124,8 @@ void *bankDoor() {
             customer_cnt += 1;
             // Push current customer into the FIFO
             struct customer c;
-            c.transactionStartTime = count;
-            push(&q,c);
+            c.bankEntryTime = count;
+            push(&inqueue,c);
             // Pick time until next customer arrives
             random_next_arrival = randomNum(SECONDS_PER_MINUTE,4*SECONDS_PER_MINUTE);
         } 
@@ -134,7 +140,6 @@ void *bankDoor() {
 void *timer() {
     
     BOOL isempty;
-    unsigned int num_in_line = 0;
     
     while(TRUE) {
         // Simulate timer which will fire every 1.666 using
@@ -145,10 +150,10 @@ void *timer() {
         pthread_mutex_lock(&lock);
         count += 1;
         pthread_cond_broadcast(&cv);
-        isempty = isEmpty(&q); 
+        isempty = isEmpty(&inqueue); 
         pthread_mutex_unlock(&lock);
-        if (q.length > num_in_line) {
-            num_in_line = q.length;
+        if (inqueue.length > max_num_in_line) {
+            max_num_in_line = inqueue.length;
         }
         
         // If current time of day is past closing time and queue is empty
@@ -168,7 +173,8 @@ int main(int argc, char *argv[]) {
     pthread_t timer_th;
     
     srand(time(NULL));
-    init_queue(&q);
+    init_queue(&inqueue);
+    init_queue(&outqueue);
     
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init (&cv, NULL);
@@ -191,7 +197,7 @@ int main(int argc, char *argv[]) {
     pthread_join(timer_th, NULL);
     
     struct stats s;
-    initStats(&s, &tell1, &tell2, &tell3);
+    initStats(&s, &tell1, &tell2, &tell3, &outqueue, max_num_in_line);
     
     outputStats(&s);
     
