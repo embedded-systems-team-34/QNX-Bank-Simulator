@@ -58,7 +58,7 @@ void outputStats(struct stats *s) {
     unsigned int teller_total_wait_time = getTotalWaitTime(&s->tellers[0]) + 
                                           getTotalWaitTime(&s->tellers[1]) + 
                                           getTotalWaitTime(&s->tellers[2]);
-    
+
     printf("* Average time tellers spent waiting for customers: %u\n", teller_total_wait_time / num_customers);
     printf("* Maximum customer wait time : %u\n", max_customer_wait_time_seconds);
     

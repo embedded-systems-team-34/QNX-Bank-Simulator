@@ -13,7 +13,7 @@
 #define SECONDS_PER_MINUTE (60)
 #define MINUTES_PER_HOUR (60)
 
-// These are in terms of 1.6 ms ticks
+// These are in terms of 3.3 ms ticks
 // 9am
 #define START_OF_DAY (0)
 // 4pm
@@ -25,7 +25,7 @@ struct queue inqueue;
 struct queue outqueue;
 unsigned int customersInBank = 0;
 
-// Represents seconds 
+// Represents seconds
 unsigned int count = 0;
 // Number of customers in line
 unsigned int max_num_in_line = 0;
@@ -35,21 +35,23 @@ unsigned int randomNum(unsigned int min, unsigned int max) {
 }
 
 void *teller_thread(void *args) {
-    
+
     unsigned int fifo_empty;
     unsigned int transactionTime = 0;
     unsigned int breakTime = 0;
     BOOL onBreak = FALSE;
     unsigned int timeUntilBreak = randomNum(30 * SECONDS_PER_MINUTE, 60 * SECONDS_PER_MINUTE);
-    
+
     struct teller *t = (struct teller *) args;
-    
+
+    // Log tellers as avaliable for start of day
+    logTellerAvailable(t, 1);
+
     while(TRUE) {
         pthread_mutex_lock(&lock);
         // wait on count to update
         pthread_cond_wait(&cv, &lock);
-        fifo_empty = isEmpty(&inqueue); 
-        
+        fifo_empty = isEmpty(&inqueue);
         // If time for the teller to go on break and teller not busy and teller not currently on break and not the end of day
         // Once the day is over tellers will no longer take breaks as they know as soon as they finish the queue they can go home
         if ((timeUntilBreak == 0) && (transactionTime == 0) && (onBreak == FALSE) && (count < END_OF_DAY)) {
@@ -63,11 +65,11 @@ void *teller_thread(void *args) {
             onBreak = FALSE;
             logBreakEnd(t, count);
         }
-        
+
         // If the teller is on break, decrement time left on break
         if (breakTime > 0) {
             breakTime -= 1;
-        } 
+        }
         // Teller is not on break, process customers normally
         else {
             // The queue is not empty and the current teller is free
@@ -87,19 +89,19 @@ void *teller_thread(void *args) {
             // Do not want to subtract one if a teller is not busy will underflow
             if (transactionTime > 0) {
                 transactionTime -= 1;
-            } 
-            
+            }
+
             // Log the end of a customer transaction
             if (transactionTime == 1) {
                 logEndTransaction(t, count + 1);
                 logTellerAvailable(t, count + 1);
                 customersInBank -= 1;
             }
-            
+
             if (timeUntilBreak > 0 ) {
                 timeUntilBreak -= 1;
             }
-            
+
             // If end of day and the queue is empty
             if ((count > END_OF_DAY) && (fifo_empty == TRUE) && customersInBank == 0) {
                 break;
@@ -110,19 +112,20 @@ void *teller_thread(void *args) {
 }
 
 void *bankDoor() {
-    
+
     unsigned int random_next_arrival = 0;
     unsigned int last_processed_cnt = 1;
     unsigned int customer_cnt = 0;
     unsigned int i = 0;
-    
+
     while (TRUE) {
         while( count < END_OF_DAY) {
             pthread_mutex_lock(&lock);
             // Wait on count to update
             pthread_cond_wait(&cv, &lock);
+            //printf("count: %u\n", count);
             // If next customer is arriving
-            if (random_next_arrival == 0) {      
+            if (random_next_arrival == 0) {
                 customer_cnt += 1;
                 // Push current customer into the FIFO
                 struct customer c;
@@ -130,7 +133,7 @@ void *bankDoor() {
                 push(&inqueue,c);
                 // Pick time until next customer arrives
                 random_next_arrival = randomNum(SECONDS_PER_MINUTE,4*SECONDS_PER_MINUTE);
-            } 
+            }
             last_processed_cnt = count;
             random_next_arrival -= 1;
             pthread_mutex_unlock(&lock);
@@ -139,74 +142,98 @@ void *bankDoor() {
             break;
         }
     }
-    //printf("The bank is closed!!\n");
-    //printf("Bank had: %u\n", customer_cnt);
+    printf("The bank is closed!!\n");
+    printf("Bank had: %u\n", customer_cnt);
 }
 
-void *timer() {
-    
+void timer() {
+
     BOOL isempty;
-    
-    while(TRUE) {
+
         // Simulate timer which will fire every 1.666 using
         // 1.666 us represents 1 second of reallife time
         // 100 ms -> 60 seconds
-        // 100ms/60 = 1.6666ms = 1 second 
-        usleep(10);//(1666);
+        // 100ms/60 = 1.6666ms = 1 second
         pthread_mutex_lock(&lock);
         count += 1;
         pthread_cond_broadcast(&cv);
-        isempty = isEmpty(&inqueue); 
+        //isempty = isEmpty(&inqueue);
         pthread_mutex_unlock(&lock);
         if (inqueue.length > max_num_in_line) {
             max_num_in_line = inqueue.length;
         }
-        
+
         // If current time of day is past closing time and queue is empty
         //if ((count > END_OF_DAY) && (isempty == TRUE) && (customersInBank == 0)) {
         //    break;
         //}
-        
-    }   
-} 
+}
 
 int main(int argc, char *argv[]) {
-    
+
     pthread_t teller1;
     pthread_t teller2;
     pthread_t teller3;
     pthread_t bankdoor_th;
     pthread_t timer_th;
-    
+
+    //What to do when the timer expires
+    	struct sigevent event;
+
+    	//Parameters of the timer
+    	struct itimerspec timerSpec;
+    	timer_t timerID;
+
     srand(time(NULL));
     init_queue(&inqueue);
     init_queue(&outqueue);
-    
+
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init (&cv, NULL);
-    
+
     struct teller tell1;
     struct teller tell2;
     struct teller tell3;
-    
+
     initTeller(&tell1,1);
     initTeller(&tell2,2);
     initTeller(&tell3,3);
-    
+
+    //Amount of time to pass before the timer will expire
+    //seconds
+    timerSpec.it_value.tv_sec = 0;
+    //Nanoseconds
+    timerSpec.it_value.tv_nsec = 3333333;
+
+    //Define the period of timer
+    timerSpec.it_interval.tv_sec = 0;
+    timerSpec.it_interval.tv_nsec = 3333333;
+
+    //Event, method address, method parameter, code
+    SIGEV_THREAD_INIT(&event, timer, NULL, 0 );
+    printf("Starting Simulation.\n");
+    timer_create(CLOCK_REALTIME, &event, &timerID);
+    timer_settime(timerID, 0, &timerSpec, NULL);
+
     pthread_create(&teller1, NULL, teller_thread, &tell1);
     pthread_create(&teller2, NULL, teller_thread, &tell2);
     pthread_create(&teller3, NULL, teller_thread, &tell3);
-    
+
     pthread_create(&bankdoor_th, NULL, bankDoor, NULL);
-    pthread_create(&timer_th, NULL, timer, NULL);
-    
+
+    timer_create(CLOCK_REALTIME, &event, &timerID);
+    timer_settime(timerID, 0, &timerSpec, NULL);
+
     pthread_join(bankdoor_th, NULL);
-    
-    
+
+
     struct stats s;
     initStats(&s, &tell1, &tell2, &tell3, &outqueue, max_num_in_line);
-    
+
     outputStats(&s);
-    
+    //viewArrays(&tell1);
+    //viewArrays(&tell2);
+    //viewArrays(&tell3);
+
 	return EXIT_SUCCESS;
 }

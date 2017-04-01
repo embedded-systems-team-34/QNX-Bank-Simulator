@@ -37,5 +37,6 @@ unsigned int getShortestBreak(struct teller * t);
 unsigned int getAverageBreak(struct teller *t);
 unsigned int getTotalWaitTime(struct teller *t);
 unsigned int getMaximumWaitTime(struct teller *t);
+unsigned int viewArrays(struct teller *t);
     
 #endif
