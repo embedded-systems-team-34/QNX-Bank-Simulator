@@ -5,6 +5,11 @@
 #include <time.h>
 #include <pthread.h>
 
+#include <sys/neutrino.h>
+#include <stdint.h>
+#include <sys/mman.h>
+#include <hw/inout.h>
+
 #include "customer.h"
 #include "queue.h"
 #include "teller.h"
@@ -24,6 +29,9 @@ pthread_cond_t cv;
 struct queue inqueue;
 struct queue outqueue;
 unsigned int customersInBank = 0;
+
+uintptr_t port_a;
+uintptr_t dir;
 
 // Represents seconds
 unsigned int count = 0;
@@ -104,11 +112,13 @@ void *teller_thread(void *args) {
 
             // If end of day and the queue is empty
             if ((count > END_OF_DAY) && (fifo_empty == TRUE) && customersInBank == 0) {
+            	pthread_mutex_unlock(&lock);
                 break;
             }
         }
         pthread_mutex_unlock(&lock);
     }
+    return NULL;
 }
 
 void *bankDoor() {
@@ -116,14 +126,12 @@ void *bankDoor() {
     unsigned int random_next_arrival = 0;
     unsigned int last_processed_cnt = 1;
     unsigned int customer_cnt = 0;
-    unsigned int i = 0;
 
     while (TRUE) {
         while( count < END_OF_DAY) {
             pthread_mutex_lock(&lock);
             // Wait on count to update
             pthread_cond_wait(&cv, &lock);
-            //printf("count: %u\n", count);
             // If next customer is arriving
             if (random_next_arrival == 0) {
                 customer_cnt += 1;
@@ -138,17 +146,19 @@ void *bankDoor() {
             random_next_arrival -= 1;
             pthread_mutex_unlock(&lock);
         }
+
         if ((count > END_OF_DAY) && (customersInBank == 0)) {
             break;
         }
     }
-    printf("The bank is closed!!\n");
-    printf("Bank had: %u\n", customer_cnt);
+//    printf("The bank is closed!!\n");
+//    printf("Bank had: %u\n", customer_cnt);
+    return NULL;
 }
 
 void timer() {
 
-    BOOL isempty;
+    static unsigned int val = 0;
 
         // Simulate timer which will fire every 1.666 using
         // 1.666 us represents 1 second of reallife time
@@ -156,17 +166,14 @@ void timer() {
         // 100ms/60 = 1.6666ms = 1 second
         pthread_mutex_lock(&lock);
         count += 1;
+        val ^= 1;
+        out8(port_a,val);
         pthread_cond_broadcast(&cv);
         //isempty = isEmpty(&inqueue);
         pthread_mutex_unlock(&lock);
         if (inqueue.length > max_num_in_line) {
             max_num_in_line = inqueue.length;
         }
-
-        // If current time of day is past closing time and queue is empty
-        //if ((count > END_OF_DAY) && (isempty == TRUE) && (customersInBank == 0)) {
-        //    break;
-        //}
 }
 
 int main(int argc, char *argv[]) {
@@ -175,10 +182,10 @@ int main(int argc, char *argv[]) {
     pthread_t teller2;
     pthread_t teller3;
     pthread_t bankdoor_th;
-    pthread_t timer_th;
 
     //What to do when the timer expires
     	struct sigevent event;
+    	struct sigaction action;
 
     	//Parameters of the timer
     	struct itimerspec timerSpec;
@@ -199,21 +206,53 @@ int main(int argc, char *argv[]) {
     initTeller(&tell2,2);
     initTeller(&tell3,3);
 
+    struct _clockperiod clkper;
+
+	// Set clock to a period of 10 us
+	clkper.nsec       = 10000;
+	clkper.fract      = 0;
+	ClockPeriod ( CLOCK_REALTIME, &clkper, NULL, 0  );
+
+	struct timespec res;
+
+	clock_getres( CLOCK_REALTIME, &res);
+
+//	printf( "Resolution is %ld micro seconds.\n",
+//	          res.tv_nsec / 1000 );
+
     //Amount of time to pass before the timer will expire
     //seconds
-    timerSpec.it_value.tv_sec = 0;
-    //Nanoseconds
-    timerSpec.it_value.tv_nsec = 3333333;
+	timerSpec.it_value.tv_sec = 0;
+	//Nanoseconds
+	timerSpec.it_value.tv_nsec = 1666666;
 
-    //Define the period of timer
-    timerSpec.it_interval.tv_sec = 0;
-    timerSpec.it_interval.tv_nsec = 3333333;
+	//Define the period of timer
+	timerSpec.it_interval.tv_sec = 0;
+	timerSpec.it_interval.tv_nsec = 1666666;
 
-    //Event, method address, method parameter, code
-    SIGEV_THREAD_INIT(&event, timer, NULL, 0 );
+	//Event, method address, method parameter, code
+
+
+
+    if ( ThreadCtl(_NTO_TCTL_IO, NULL) == -1)
+    {
+
+    	printf("Failed to get I/O access permission");
+    }
+
+    port_a = mmap_device_io(1, 0x280 + 8);
+    dir = mmap_device_io(1, 0x280 + 11);
+    out8(dir,0x00);
+
+	action.sa_sigaction = timer;
+	action.sa_flags = SA_SIGINFO;
+	sigaction( SIGUSR1, &action, NULL );
+	SIGEV_SIGNAL_INIT(&event, SIGUSR1);
     printf("Starting Simulation.\n");
+
     timer_create(CLOCK_REALTIME, &event, &timerID);
     timer_settime(timerID, 0, &timerSpec, NULL);
+
 
     pthread_create(&teller1, NULL, teller_thread, &tell1);
     pthread_create(&teller2, NULL, teller_thread, &tell2);
@@ -221,11 +260,7 @@ int main(int argc, char *argv[]) {
 
     pthread_create(&bankdoor_th, NULL, bankDoor, NULL);
 
-    timer_create(CLOCK_REALTIME, &event, &timerID);
-    timer_settime(timerID, 0, &timerSpec, NULL);
-
     pthread_join(bankdoor_th, NULL);
-
 
     struct stats s;
     initStats(&s, &tell1, &tell2, &tell3, &outqueue, max_num_in_line);
@@ -234,6 +269,8 @@ int main(int argc, char *argv[]) {
     //viewArrays(&tell1);
     //viewArrays(&tell2);
     //viewArrays(&tell3);
+
+    printf("EXITING SIMULATION\n");
 
 	return EXIT_SUCCESS;
 }
