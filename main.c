@@ -1,3 +1,18 @@
+/******************************************************************************
+* FILENAME : main.c      
+*
+* DESCRIPTION : 
+*     Bank simulator implementation. Customers arrive, are placed into a queue
+*     and processed by the teller threads. Teller threads assign timestamps based
+*     on various events occurring and these timestaps are post-processed and after 
+*     the bank simulation is complete at which point stats are output to the console
+*
+* AUTHOR: 
+*     Donald MacIntyre - djm4912@rit.edu
+*     Madison Smith    - ms8565@rit.edu  
+*
+******************************************************************************/
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -15,14 +30,19 @@
 #include "teller.h"
 #include "stats.h"
 
+
+#define QNX_BASE_ADDRESS (0x280)
 #define SECONDS_PER_MINUTE (60)
 #define MINUTES_PER_HOUR (60)
+#define TIMER_PERIOD_NS (1666666)
+#define CLOCK_PERIOD_10US (10000)
 
 // These are in terms of 3.3 ms ticks
 // 9am
 #define START_OF_DAY (0)
 // 4pm
 #define END_OF_DAY (SECONDS_PER_MINUTE*MINUTES_PER_HOUR*7)
+#define DEBUG (FALSE)
 
 pthread_mutex_t lock;
 pthread_cond_t cv;
@@ -30,8 +50,10 @@ struct queue inqueue;
 struct queue outqueue;
 unsigned int customersInBank = 0;
 
+#ifdef DEBUG
 uintptr_t port_a;
 uintptr_t dir;
+#endif
 
 // Represents seconds
 unsigned int count = 0;
@@ -128,6 +150,7 @@ void *bankDoor() {
     unsigned int customer_cnt = 0;
 
     while (TRUE) {
+        // While the bank is not closed
         while( count < END_OF_DAY) {
             pthread_mutex_lock(&lock);
             // Wait on count to update
@@ -146,34 +169,39 @@ void *bankDoor() {
             random_next_arrival -= 1;
             pthread_mutex_unlock(&lock);
         }
-
+        
+        // If the bank is closed and all customers have finished there transactions
         if ((count > END_OF_DAY) && (customersInBank == 0)) {
             break;
         }
     }
-//    printf("The bank is closed!!\n");
-//    printf("Bank had: %u\n", customer_cnt);
+#ifdef DEBUG
+    printf("The bank is closed!!\n");
+    printf("Bank had: %u\n", customer_cnt);
+#endif
     return NULL;
 }
 
+// Action handler -> This fires periodically every 1.6 ms and corresponds 
+// to a passage of 1 second of realtime
 void timer() {
 
+#ifdef DEBUG
     static unsigned int val = 0;
-
-        // Simulate timer which will fire every 1.666 using
-        // 1.666 us represents 1 second of reallife time
-        // 100 ms -> 60 seconds
-        // 100ms/60 = 1.6666ms = 1 second
-        pthread_mutex_lock(&lock);
-        count += 1;
-        //val ^= 1;
-        //out8(port_a,val);
-        pthread_cond_broadcast(&cv);
-        //isempty = isEmpty(&inqueue);
-        pthread_mutex_unlock(&lock);
-        if (inqueue.length > max_num_in_line) {
-            max_num_in_line = inqueue.length;
-        }
+#endif
+    
+    pthread_mutex_lock(&lock);
+    count += 1;
+#ifdef DEBUG
+    // debug code used to verify accuract of timer
+    val ^= 1;
+    out8(port_a,val);
+#endif
+    pthread_cond_broadcast(&cv);
+    pthread_mutex_unlock(&lock);
+    if (inqueue.length > max_num_in_line) {
+        max_num_in_line = inqueue.length;
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -183,25 +211,28 @@ int main(int argc, char *argv[]) {
     pthread_t teller3;
     pthread_t bankdoor_th;
 
-    //What to do when the timer expires
-    	struct sigevent event;
-    	struct sigaction action;
+    // What to do when the timer expires
+    struct sigevent event;
+    struct sigaction action;
 
-    	//Parameters of the timer
-    	struct itimerspec timerSpec;
-    	timer_t timerID;
-
+    //Parameters of the timer
+    struct itimerspec timerSpec;
+    timer_t timerID;
+    
     srand(time(NULL));
+    // Initalize the queues
     init_queue(&inqueue);
     init_queue(&outqueue);
 
+    // Initalize mutex and condition variable used to communicate between threads
     pthread_mutex_init(&lock, NULL);
     pthread_cond_init (&cv, NULL);
 
+    // Initalize teller structure
     struct teller tell1;
     struct teller tell2;
     struct teller tell3;
-
+    
     initTeller(&tell1,1);
     initTeller(&tell2,2);
     initTeller(&tell3,3);
@@ -209,66 +240,73 @@ int main(int argc, char *argv[]) {
     struct _clockperiod clkper;
 
 	// Set clock to a period of 10 us
-	clkper.nsec       = 10000;
+	clkper.nsec       = CLOCK_PERIOD_10US;
 	clkper.fract      = 0;
 	ClockPeriod ( CLOCK_REALTIME, &clkper, NULL, 0  );
 
-	struct timespec res;
+#ifdef DEBUG
+    // Verify clock period has been set to 10 us
+    struct timespec res;
+    clock_getres( CLOCK_REALTIME, &res);
+	printf( "Resolution is %ld micro seconds.\n", res.tv_nsec / 1000 );
+#endif
 
-	clock_getres( CLOCK_REALTIME, &res);
-
-//	printf( "Resolution is %ld micro seconds.\n",
-//	          res.tv_nsec / 1000 );
-
-    //Amount of time to pass before the timer will expire
-    //seconds
+    
+    // Define the oneshot of the timer
 	timerSpec.it_value.tv_sec = 0;
-	//Nanoseconds
-	timerSpec.it_value.tv_nsec = 1666666;
+	timerSpec.it_value.tv_nsec = TIMER_PERIOD_NS;
 
 	//Define the period of timer
 	timerSpec.it_interval.tv_sec = 0;
-	timerSpec.it_interval.tv_nsec = 1666666;
-
-	//Event, method address, method parameter, code
+	timerSpec.it_interval.tv_nsec = TIMER_PERIOD_NS;
 
 
-
+#ifdef DEBUG
     if ( ThreadCtl(_NTO_TCTL_IO, NULL) == -1)
     {
 
     	printf("Failed to get I/O access permission");
     }
 
-    port_a = mmap_device_io(1, 0x280 + 8);
-    dir = mmap_device_io(1, 0x280 + 11);
+    port_a = mmap_device_io(1, QNX_BASE_ADDRESS + 8);
+    dir = mmap_device_io(1, QNX_BASE_ADDRESS + 11);
+    // Set PortA as output
     out8(dir,0x00);
+#endif
 
+    printf("Starting Simulation.\n");
+    
+    // Setup signal handler which occurrs when timer fires
 	action.sa_sigaction = timer;
 	action.sa_flags = SA_SIGINFO;
 	sigaction( SIGUSR1, &action, NULL );
 	SIGEV_SIGNAL_INIT(&event, SIGUSR1);
-    printf("Starting Simulation.\n");
-
+    
+    // Start the timer 
     timer_create(CLOCK_REALTIME, &event, &timerID);
     timer_settime(timerID, 0, &timerSpec, NULL);
 
-
+    // Create the three teller threads
     pthread_create(&teller1, NULL, teller_thread, &tell1);
     pthread_create(&teller2, NULL, teller_thread, &tell2);
     pthread_create(&teller3, NULL, teller_thread, &tell3);
 
+    // Create the bank door thread responsible for generating customers
     pthread_create(&bankdoor_th, NULL, bankDoor, NULL);
 
+    // Wait until the end of the day and no customers left in the bank
     pthread_join(bankdoor_th, NULL);
 
+    // Initalize the statstics structure with teller and customer information
     struct stats s;
     initStats(&s, &tell1, &tell2, &tell3, &outqueue, max_num_in_line);
 
     outputStats(&s);
-    //viewArrays(&tell1);
-    //viewArrays(&tell2);
-    //viewArrays(&tell3);
+#ifdef DEBUG    
+    viewArrays(&tell1);
+    viewArrays(&tell2);
+    viewArrays(&tell3);
+#endif
 
     printf("EXITING SIMULATION\n");
 
