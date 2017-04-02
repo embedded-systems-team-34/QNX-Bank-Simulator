@@ -166,8 +166,8 @@ void timer() {
         // 100ms/60 = 1.6666ms = 1 second
         pthread_mutex_lock(&lock);
         count += 1;
-        val ^= 1;
-        out8(port_a,val);
+        //val ^= 1;
+        //out8(port_a,val);
         pthread_cond_broadcast(&cv);
         //isempty = isEmpty(&inqueue);
         pthread_mutex_unlock(&lock);
