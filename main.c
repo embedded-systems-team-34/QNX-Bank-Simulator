@@ -50,7 +50,7 @@ struct queue inqueue;
 struct queue outqueue;
 unsigned int customersInBank = 0;
 
-#ifdef DEBUG
+#if DEBUG
 uintptr_t port_a;
 uintptr_t dir;
 #endif
@@ -128,7 +128,7 @@ void *teller_thread(void *args) {
                 customersInBank -= 1;
             }
 
-            if (timeUntilBreak > 0 ) {
+            if ((timeUntilBreak > 0 ) && (BREAKS == TRUE)) {
                 timeUntilBreak -= 1;
             }
 
@@ -175,7 +175,7 @@ void *bankDoor() {
             break;
         }
     }
-#ifdef DEBUG
+#if DEBUG
     printf("The bank is closed!!\n");
     printf("Bank had: %u\n", customer_cnt);
 #endif
@@ -186,13 +186,13 @@ void *bankDoor() {
 // to a passage of 1 second of realtime
 void timer() {
 
-#ifdef DEBUG
+#if DEBUG
     static unsigned int val = 0;
 #endif
     
     pthread_mutex_lock(&lock);
     count += 1;
-#ifdef DEBUG
+#if DEBUG
     // debug code used to verify accuract of timer
     val ^= 1;
     out8(port_a,val);
@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
 	clkper.fract      = 0;
 	ClockPeriod ( CLOCK_REALTIME, &clkper, NULL, 0  );
 
-#ifdef DEBUG
+#if DEBUG
     // Verify clock period has been set to 10 us
     struct timespec res;
     clock_getres( CLOCK_REALTIME, &res);
@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
 	timerSpec.it_interval.tv_nsec = TIMER_PERIOD_NS;
 
 
-#ifdef DEBUG
+#if DEBUG
     if ( ThreadCtl(_NTO_TCTL_IO, NULL) == -1)
     {
 
@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
     initStats(&s, &tell1, &tell2, &tell3, &outqueue, max_num_in_line);
 
     outputStats(&s);
-#ifdef DEBUG    
+#if DEBUG
     viewArrays(&tell1);
     viewArrays(&tell2);
     viewArrays(&tell3);

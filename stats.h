@@ -16,6 +16,8 @@
 #include "queue.h"
 #include "customer.h"
 
+#define BREAKS (FALSE)
+
 #ifndef STATS_H
 #define STATS_H
 
