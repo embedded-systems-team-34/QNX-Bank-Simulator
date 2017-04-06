@@ -39,6 +39,7 @@ BOOL push(struct queue* q, struct customer c) {
     return TRUE;
 }
 
+//Pop the first element from the queue
 struct customer pop(struct queue* q) {
     struct customer c;
     c = q->customer_arr[q->out_ptr];

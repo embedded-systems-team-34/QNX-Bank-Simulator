@@ -41,13 +41,13 @@ void outputStats(struct stats *s) {
     for (i = 0; i < num_customers; i++) {
         struct customer c;
         c = pop(&s->q); 
-        total_customer_wait_time_in_seconds += c.transactionStartTime - c.bankEntryTime;
-        total_time_spent_with_tellers_seconds += c.transactionEndTime - c.transactionStartTime;
-        if (max_customer_wait_time_seconds < (c.transactionStartTime - c.bankEntryTime)) {
-            max_customer_wait_time_seconds = c.transactionStartTime - c.bankEntryTime;
+        total_customer_wait_time_in_seconds += c.transaction_start_time - c.bank_entry_time;
+        total_time_spent_with_tellers_seconds += c.transaction_end_time - c.transaction_start_time;
+        if (max_customer_wait_time_seconds < (c.transaction_start_time - c.bank_entry_time)) {
+            max_customer_wait_time_seconds = c.transaction_start_time - c.bank_entry_time;
         }
-        if (max_transaction_time_seconds < (c.transactionEndTime - c.transactionStartTime)) {
-            max_transaction_time_seconds = c.transactionEndTime - c.transactionStartTime;
+        if (max_transaction_time_seconds < (c.transaction_end_time - c.transaction_start_time)) {
+            max_transaction_time_seconds = c.transaction_end_time - c.transaction_start_time;
         }
     }
     
@@ -59,7 +59,6 @@ void outputStats(struct stats *s) {
                                           getTotalWaitTime(&s->tellers[1]) + 
                                           getTotalWaitTime(&s->tellers[2]);
 
-    //usleep(1000);
 
     printf("4. * Average time tellers spent waiting for customers: %u\n", teller_total_wait_time / num_customers);
     printf("5. * Maximum customer wait time : %u\n", max_customer_wait_time_seconds);
@@ -67,8 +66,6 @@ void outputStats(struct stats *s) {
     unsigned int teller1_max_time = getMaximumWaitTime(&s->tellers[0]);
     unsigned int teller2_max_time = getMaximumWaitTime(&s->tellers[0]);
     unsigned int teller3_max_time = getMaximumWaitTime(&s->tellers[0]);
-    
-    //usleep(1000);
 
     printf("6. * Maximum wait time for tellers waiting for customers: %u\n", getMax3(teller1_max_time,teller2_max_time,teller3_max_time));
     printf("7. * Maximum transaction time for the tellers: %u\n", max_transaction_time_seconds);
@@ -78,10 +75,10 @@ void outputStats(struct stats *s) {
     // Grad additional metrics (breaks)
     for (i = 0;  i < 3; i++) {
     	if (BREAKS == TRUE) {
-    		printf("* Teller %u took %u breaks.\n", s->tellers[i].tellerId, s->tellers[i].numBreaks);
-    		printf("* Teller %u shortest break was: %u\n", s->tellers[i].tellerId,getShortestBreak(&s->tellers[i]));
-    		printf("* Teller %u average break was: %u\n", s->tellers[i].tellerId,getAverageBreak(&s->tellers[i]));
-    		printf("* Teller %u longest break was: %u\n", s->tellers[i].tellerId,getLongestBreak(&s->tellers[i]));
+    		printf("* Teller %u took %u breaks.\n", s->tellers[i].teller_id, s->tellers[i].num_breaks);
+    		printf("* Teller %u shortest break was: %u\n", s->tellers[i].teller_id,getShortestBreak(&s->tellers[i]));
+    		printf("* Teller %u average break was: %u\n", s->tellers[i].teller_id,getAverageBreak(&s->tellers[i]));
+    		printf("* Teller %u longest break was: %u\n", s->tellers[i].teller_id,getLongestBreak(&s->tellers[i]));
     		printf("*****************************************************************\n");
     	}
     }

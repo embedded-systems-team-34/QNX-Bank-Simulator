@@ -46,9 +46,9 @@
 
 pthread_mutex_t lock;
 pthread_cond_t cv;
-struct queue inqueue;
-struct queue outqueue;
-unsigned int customersInBank = 0;
+struct queue in_queue;
+struct queue out_queue;
+unsigned int customers_in_bank = 0;
 
 #if DEBUG
 uintptr_t port_a;
@@ -64,13 +64,14 @@ unsigned int randomNum(unsigned int min, unsigned int max) {
     return rand() % (max + 1 - min) + min;
 }
 
+//Initialize teller thread
 void *teller_thread(void *args) {
 
     unsigned int fifo_empty;
-    unsigned int transactionTime = 0;
-    unsigned int breakTime = 0;
+    unsigned int transaction_time = 0;
+    unsigned int break_time = 0;
     BOOL onBreak = FALSE;
-    unsigned int timeUntilBreak = randomNum(30 * SECONDS_PER_MINUTE, 60 * SECONDS_PER_MINUTE);
+    unsigned int time_until_break = randomNum(30 * SECONDS_PER_MINUTE, 60 * SECONDS_PER_MINUTE);
 
     struct teller *t = (struct teller *) args;
 
@@ -81,59 +82,59 @@ void *teller_thread(void *args) {
         pthread_mutex_lock(&lock);
         // wait on count to update
         pthread_cond_wait(&cv, &lock);
-        fifo_empty = isEmpty(&inqueue);
+        fifo_empty = isEmpty(&in_queue);
         // If time for the teller to go on break and teller not busy and teller not currently on break and not the end of day
         // Once the day is over tellers will no longer take breaks as they know as soon as they finish the queue they can go home
-        if ((timeUntilBreak == 0) && (transactionTime == 0) && (onBreak == FALSE) && (count < END_OF_DAY)) {
+        if ((time_until_break == 0) && (transaction_time == 0) && (onBreak == FALSE) && (count < END_OF_DAY)) {
             onBreak = TRUE;
-            breakTime = randomNum(1*SECONDS_PER_MINUTE, 4*SECONDS_PER_MINUTE);
+            break_time = randomNum(1*SECONDS_PER_MINUTE, 4*SECONDS_PER_MINUTE);
             logBreakStart(t, count);
         }
         // Teller break is over, calculate next break time
-        if ((onBreak == TRUE) && (breakTime == 0)) {
-            timeUntilBreak = randomNum(30 * SECONDS_PER_MINUTE, 60 * SECONDS_PER_MINUTE);
+        if ((onBreak == TRUE) && (break_time == 0)) {
+            time_until_break = randomNum(30 * SECONDS_PER_MINUTE, 60 * SECONDS_PER_MINUTE);
             onBreak = FALSE;
             logBreakEnd(t, count);
         }
 
         // If the teller is on break, decrement time left on break
-        if (breakTime > 0) {
-            breakTime -= 1;
+        if (break_time > 0) {
+            break_time -= 1;
         }
         // Teller is not on break, process customers normally
         else {
             // The queue is not empty and the current teller is free
-            if ((fifo_empty == FALSE) && (transactionTime == 0)) {
+            if ((fifo_empty == FALSE) && (transaction_time == 0)) {
                 // Pop from the queue
                 logStartTransaction(t, count);
                 struct customer c;
-                c = pop(&inqueue);
-                customersInBank += 1;
-                // Determine the length of the transactionStartTime
-                transactionTime = randomNum(30,8*SECONDS_PER_MINUTE);
-                c.transactionStartTime = count;
-                c.transactionEndTime = count + transactionTime;
+                c = pop(&in_queue);
+                customers_in_bank += 1;
+                // Determine the length of the transaction_start_time
+                transaction_time = randomNum(30,8*SECONDS_PER_MINUTE);
+                c.transaction_start_time = count;
+                c.transaction_end_time = count + transaction_time;
                 // Push customers that have been fully processed into the queue for stats processing
-                push(&outqueue, c);
+                push(&out_queue, c);
             }
             // Do not want to subtract one if a teller is not busy will underflow
-            if (transactionTime > 0) {
-                transactionTime -= 1;
+            if (transaction_time > 0) {
+                transaction_time -= 1;
             }
 
             // Log the end of a customer transaction
-            if (transactionTime == 1) {
+            if (transaction_time == 1) {
                 logEndTransaction(t, count + 1);
                 logTellerAvailable(t, count + 1);
-                customersInBank -= 1;
+                customers_in_bank -= 1;
             }
 
-            if ((timeUntilBreak > 0 ) && (BREAKS == TRUE)) {
-                timeUntilBreak -= 1;
+            if ((time_until_break > 0 ) && (BREAKS == TRUE)) {
+                time_until_break -= 1;
             }
 
             // If end of day and the queue is empty
-            if ((count > END_OF_DAY) && (fifo_empty == TRUE) && customersInBank == 0) {
+            if ((count > END_OF_DAY) && (fifo_empty == TRUE) && customers_in_bank == 0) {
             	pthread_mutex_unlock(&lock);
                 break;
             }
@@ -160,8 +161,8 @@ void *bankDoor() {
                 customer_cnt += 1;
                 // Push current customer into the FIFO
                 struct customer c;
-                c.bankEntryTime = count;
-                push(&inqueue,c);
+                c.bank_entry_time = count;
+                push(&in_queue,c);
                 // Pick time until next customer arrives
                 random_next_arrival = randomNum(SECONDS_PER_MINUTE,4*SECONDS_PER_MINUTE);
             }
@@ -171,7 +172,7 @@ void *bankDoor() {
         }
         
         // If the bank is closed and all customers have finished there transactions
-        if ((count > END_OF_DAY) && (customersInBank == 0)) {
+        if ((count > END_OF_DAY) && (customers_in_bank == 0)) {
             break;
         }
     }
@@ -199,8 +200,8 @@ void timer() {
 #endif
     pthread_cond_broadcast(&cv);
     pthread_mutex_unlock(&lock);
-    if (inqueue.length > max_num_in_line) {
-        max_num_in_line = inqueue.length;
+    if (in_queue.length > max_num_in_line) {
+        max_num_in_line = in_queue.length;
     }
 }
 
@@ -216,13 +217,13 @@ int main(int argc, char *argv[]) {
     struct sigaction action;
 
     //Parameters of the timer
-    struct itimerspec timerSpec;
+    struct itimer_spec timer_spec;
     timer_t timerID;
     
     srand(time(NULL));
     // Initalize the queues
-    init_queue(&inqueue);
-    init_queue(&outqueue);
+    init_queue(&in_queue);
+    init_queue(&out_queue);
 
     // Initalize mutex and condition variable used to communicate between threads
     pthread_mutex_init(&lock, NULL);
@@ -253,12 +254,12 @@ int main(int argc, char *argv[]) {
 
     
     // Define the oneshot of the timer
-	timerSpec.it_value.tv_sec = 0;
-	timerSpec.it_value.tv_nsec = TIMER_PERIOD_NS;
+	timer_spec.it_value.tv_sec = 0;
+	timer_spec.it_value.tv_nsec = TIMER_PERIOD_NS;
 
 	//Define the period of timer
-	timerSpec.it_interval.tv_sec = 0;
-	timerSpec.it_interval.tv_nsec = TIMER_PERIOD_NS;
+	timer_spec.it_interval.tv_sec = 0;
+	timer_spec.it_interval.tv_nsec = TIMER_PERIOD_NS;
 
 
 #if DEBUG
@@ -284,7 +285,7 @@ int main(int argc, char *argv[]) {
     
     // Start the timer 
     timer_create(CLOCK_REALTIME, &event, &timerID);
-    timer_settime(timerID, 0, &timerSpec, NULL);
+    timer_settime(timerID, 0, &timer_spec, NULL);
 
     // Create the three teller threads
     pthread_create(&teller1, NULL, teller_thread, &tell1);
@@ -299,7 +300,7 @@ int main(int argc, char *argv[]) {
 
     // Initalize the statstics structure with teller and customer information
     struct stats s;
-    initStats(&s, &tell1, &tell2, &tell3, &outqueue, max_num_in_line);
+    initStats(&s, &tell1, &tell2, &tell3, &out_queue, max_num_in_line);
 
     outputStats(&s);
 #if DEBUG

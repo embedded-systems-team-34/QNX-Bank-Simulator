@@ -13,9 +13,9 @@
 #define CUSTOMER_H
 
 struct customer {
-	unsigned int bankEntryTime;
-	unsigned int transactionStartTime;
-	unsigned int transactionEndTime;
+	unsigned int bank_entry_time;
+	unsigned int transaction_start_time;
+	unsigned int transaction_end_time;
 };
 
 #endif

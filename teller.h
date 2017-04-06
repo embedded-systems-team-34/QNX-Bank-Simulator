@@ -16,9 +16,9 @@
 #include "queue.h"
 
 struct teller {
-	unsigned int tellerId;
-    unsigned int customersProcessed;
-    unsigned int numBreaks;
+	unsigned int teller_id;
+    unsigned int customers_processed;
+    unsigned int num_breaks;
     unsigned int available_times[MAX_QUEUE_SIZE];
     unsigned int start_transaction_times[MAX_QUEUE_SIZE];
     unsigned int end_transaction_times[MAX_QUEUE_SIZE];
@@ -26,7 +26,7 @@ struct teller {
     unsigned int break_end_time[MAX_QUEUE_SIZE];
 };
 
-void initTeller(struct teller* t, unsigned int tellerId);    
+void initTeller(struct teller* t, unsigned int teller_id);    
 void logTellerAvailable(struct teller* t, unsigned int timestamp);
 void logStartTransaction(struct teller* t, unsigned int timestamp);
 void logEndTransaction(struct teller* t, unsigned int timestamp);
