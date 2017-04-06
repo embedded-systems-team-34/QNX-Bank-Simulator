@@ -125,7 +125,7 @@ unsigned int getMaximumWaitTime(struct teller *t) {
     return max_wait_time;
 }
 
-unsigned int viewArrays(struct teller *t) {
+void viewArrays(struct teller *t) {
 
 	unsigned int i = 0;
 

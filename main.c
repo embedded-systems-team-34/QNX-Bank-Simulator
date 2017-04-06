@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
     struct sigaction action;
 
     //Parameters of the timer
-    struct itimer_spec timer_spec;
+    struct itimerspec timer_spec;
     timer_t timerID;
     
     srand(time(NULL));

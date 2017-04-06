@@ -10,16 +10,16 @@
 *
 ******************************************************************************/
 
+#ifndef STATS_H
+#define STATS_H
+
 #include <stdio.h>
 
 #include "teller.h" 
 #include "queue.h"
 #include "customer.h"
 
-#define BREAKS (FALSE)
-
-#ifndef STATS_H
-#define STATS_H
+#define BREAKS (TRUE)
 
 struct stats {
 	struct teller tellers[3];
